@@ -1,0 +1,113 @@
+---
+title: "Week 3 Homework"
+output: html_notebook
+---
+
+###5.1
+```{r}
+setwd('~/Downloads')
+library(readr,dplyr)
+library(scales)
+library(moments,ggplot2)
+```
+Visualize a summary of the data and select "Crime" column.
+```{r}
+df = read_delim('uscrime.txt',delim='\t') %>% as_tibble()
+crime = df %>% dplyr::select(Crime)
+head(df)
+```
+Summary of the "Crime" column with the max and min values.
+```{r}
+summary(crime)
+```
+Kurtosis of 3.94 suggests a heavy (right) tail.
+```{r}
+crime_kurt = kurtosis(crime)
+crime_kurt
+```
+Skewness of 1.08 suggest a right skew.
+```{r}
+crime_skew = skewness(crime)
+crime_skew
+```
+
+```{r}
+ggplot(crime, aes(Crime)) + geom_density() +
+  xlab('Crime per 100,000 people') +
+  ylab('Density') +
+  geom_vline(xintercept = quantile(crime_df$Crime, .25), linetype = 'solid') +
+  geom_vline(xintercept = median(crime_df$Crime),
+  linetype = 'dotted') +
+  geom_vline(xintercept = quantile(crime_df$Crime, .75), linetype = 'solid'
+)
+```
+Shapiro test with p-value of 0.002 (i.e. <0.05), we can reject the null hypothesis that the distribution is normal. Given that the Grubbs test assumes normality, it is not as meaningful of a test. 
+```{r}
+shapiro.test(df$Crime)
+```
+QQ plot visually also suggests non-normal distribution.
+```{r}
+library(stats)
+qqnorm(df$Crime)
+qqline(df$Crime)
+```
+The Grubbs test results show that the extreme max and min points are outliers. However given that their p-values are all significantly above 0.05, we cannot reject the null hypothesis.
+```{r}
+library(outliers)
+grubbs.test(df$Crime, type = 10, opposite = T)
+grubbs.test(df$Crime, type = 10, opposite = F)
+grubbs.test(df$Crime, type = 11, opposite = T)
+grubbs.test(df$Crime, type = 11, opposite = F)
+
+```
+
+###6.1
+```{r}
+Having implemented operational improvements in investee companies as a VC, many a times the changes have a lagging effect to their realisation. For example, by changing the customer engagement strategy it would take some time before sufficient number of end customers would respond to the new strategy, for there to be a visible improvement in sales.
+
+It is important to do checks with Change Detection Models so as to not write off potentially more successful strategy that take a longer time to be realised, as opposed to small success to allows for short-term improvements upfront. 
+
+I would choose the critical value to be sufficiently high so as to not account for random unexplained variables in the model, where real world data is often noisy. The threshold value would take a few iterations to get right, but I would iterate between 80-90% of the max value of the data set / vector.
+```
+
+###6.2
+Summary of the temps data.
+```{r}
+library(dplyr)
+df2 = read_delim('temps.txt',delim='\t') %>% as_tibble()
+head(df2)
+```
+Visualise how the temperature has changed over time. The graph suggests that over the years there has not been a significant increase in temperatures above the average.
+```{r}
+library(tidyr)
+library(lubridate)
+library(ggplot2)
+
+temps = read_delim('temps.txt', delim = '\t') %>% as_tibble() %>%
+  gather(year, temp, -DAY) %>%
+  mutate(year = as.factor(year),
+  date = paste(DAY,year, sep = '-')) %>%
+  mutate(date_val = dmy(date),
+  month = month(date_val),
+  day = day(date_val)) %>%
+  dplyr::select(date_val, DAY, year, temp, month, day)
+
+ggplot(data = temps, aes(x = year, y = temp)) +
+  geom_jitter(pch = 10, alpha = .1) +
+  geom_boxplot(color = 'blue') +
+  geom_hline(yintercept = mean(temps$temp), linetype = 'dotted') +
+  xlab('Year') +
+  ylab('Temperature') +
+  labs(title = 'Temperature by Year')
+```
+
+Monthly data broadly suggests that the summer ends from September onwards, which we will go on to verify.
+```{r}
+ggplot(data = temps, aes(x = as.factor(month), y = temp)) +
+  geom_jitter(pch = 10, alpha = .1) +
+  geom_boxplot(color = 'blue') +
+  geom_hline(yintercept = mean(temps_df$temp), linetype = 'dotted') +
+  xlab('Month') +
+  ylab('Temperature') +
+  labs(title = 'Temperature by Month')
+```
