@@ -1,0 +1,76 @@
+---
+title: "Week 4 Homework"
+output: html_notebook
+---
+###7.1
+
+Triple Exponential Smoothing would be very useful in inspecting the trends behind the price of a stock. The alpha component would inform whether the stock would more or less likely to be a random walk. 
+
+The beta component would inform whether the stock would have an upward or downward trend over time, which shows whether the value of the company would have grown or shrunk over time. 
+
+And the gamma component would inform on whether the stock more or less likely be a cyclical or acyclical one, which might be due to the economic cycles of the industry it operates in.
+
+###7.2
+```{r}
+setwd('~/Downloads')
+library(dplyr)
+library(ggplot2)
+```
+Read data.
+```{r}
+df = read_delim('temps.txt',delim='\t') %>% as_tibble()
+
+n_rows = nrow(df)
+```
+
+```{r}
+df_0 = df %>%
+  dplyr::select(.,-DAY) %>%
+  unlist() %>%
+  as.vector() %>%
+  ts(start=1996, frequency=n_rows)
+```
+
+```{r}
+df_1 = df %>%
+  dplyr::select(.,-DAY) %>%
+  unlist() %>%
+  as.vector() %>%
+  ts(start=1996, frequency=n_rows) %>%
+  HoltWinters(., beta = F, gamma = F)
+```
+Holt-Winters with only alpha component shows that the latest values have relatively higher weight. This means there is relatively low level smoothing effects.
+```{r}
+df_1
+```
+
+```{r}
+df_2 = df %>%
+  dplyr::select(.,-DAY) %>%
+  unlist() %>%
+  as.vector() %>%
+  ts(start=1996, frequency=n_rows) %>%
+  HoltWinters(., gamma = F)
+```
+Holt-Winters with alpha and beta components still show that the latest values have relatively higher weight. Beta is close to 0 and this means that there is no strong trend in the data in the values moving upwards or downwards.
+```{r}
+df_2
+```
+
+```{r}
+df_3 = df %>%
+  dplyr::select(.,-DAY) %>%
+  unlist() %>%
+  as.vector() %>%
+  ts(start=1996, frequency=n_rows) %>%
+  HoltWinters()
+```
+Holt-Winters with alpha, beta, and gamma components show that level and seasonality are closer to 1 than to 0, meaning that there is relatively more weight in recent data and some significance in the short-term cyclicality in the data. Beta tends very close to 0 and this means there is almost no upward or downward trend in the data. 
+```{r}
+df_3
+```
+Our results with close to 0 beta confirms the conclusion that we would have concluded from simple visual inspection of the data.
+```{r}
+plot(df_0)
+```
+
