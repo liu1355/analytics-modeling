@@ -1,0 +1,147 @@
+---
+title: "Week 5 Homework"
+output: html_notebook
+---
+
+###8.1
+
+Identification of customer profiile for software sales per year, some variables for customer profile can be:
+1. Geographic location,
+2. Industry,
+3. Annual revenue of the customer,
+4. Number of IT employees,
+5. Annual operational expenditure unrelated to IT spending.
+
+###8.2
+setwd('~/Downloads')
+```{r}
+library(readr)
+library(dplyr, tidyr)
+library(ggplot2)
+library(corrplot)
+library(caret)
+library(raster)
+```
+Read data.
+```{r}
+df = read_delim('uscrime.txt',delim='\t') %>% as_tibble()
+```
+Data overview.
+```{r}
+head(df)
+```
+Visualisation of density function.
+```{r}
+ggplot(df, aes(Crime)) + geom_density() +
+  xlab('Crime per 100,000 people') +
+  ylab('Density') +
+  geom_vline(xintercept = quantile(df$Crime, .25), linetype = 'solid') +
+  geom_vline(xintercept = median(df$Crime),
+  linetype = 'dotted') +
+  geom_vline(xintercept = quantile(df$Crime, .75), linetype = 'solid'
+)
+```
+Visualisation for correlation between variables. We find that the following are quite highly correlated with each other [>~0.7]:
+- southern state & non-white
+- mean schooling years & wealth
+- 1959 police expenditure & wealth
+- 1960 police expenditure & wealth
+- southern state & income inequality
+
+We should also remove the police expenditure in 1960 since it is highly correlated with police expenditure in 1959.
+```{r}
+corrplot(cor(df), type = 'upper', diag = T)
+```
+Visualisation of absolute correlation with crime.
+
+We are going to try an absolute threshold of 0.1, that means dropping:
+- non-white
+- unemployment rate of males 14-24
+
+to develop a new crime dataframe.
+```{r}
+df_2 = df %>%
+  dplyr::select(-Po2)
+
+cor(df$Crime, df_2[,1:14]) %>%
+  as_tibble() %>%
+  gather(predictor, correlation) %>%
+  arrange(-correlation) %>%
+  ggplot(data = ., aes(x = predictor, y = abs(correlation), fill = abs(correlation))) +
+  geom_col()
+```
+New crime dataframe post-selection.
+```{r}
+crime_df = df %>%
+  dplyr::select(-Po2,-NW,-U1)
+
+head(crime_df)
+```
+
+```{r}
+predict_crime = data.frame(crime_df) %>% mutate_all(as.numeric) %>% dplyr::select(., -Crime)
+response_crime = data.frame(crime_df) %>% mutate_all(as.numeric) %>% dplyr::select(Crime)
+```
+Apply Box-Cox Transformation to to turn non-normal variables into normal shape.
+```{r}
+predict_crime_bc = caret::preProcess(predict_crime, method = c('center', 'scale', 'nzv', 'BoxCox'))
+```
+
+```{r}
+predict_crime_bc
+```
+We fit a simple regression model using our reworked data post-selection and post-Box-Cox and find some interesting results.
+
+Strong predictors in the positive direction:
+- percentage of males in total population (p-value:0.01)
+- mean years of schooling (p-value:0.03)
+- police expenditure (p-value:0.000008)
+- income inequality (p-value:0.0002)
+
+Strong predictors in the negative direction:
+- population size (p-value:0.1, can reject)
+
+The R2 value of 0.82 makes this a pretty good model, i.e. 82% of explained variance is incorporated within the model. R2 adjusted for sample size is 0.75 is good as well.
+
+The results are quite surprising in that higher mean years of schooling actually correlates to higher crime rates. Higher percentage of males, police expenditure and income inequality being highly correlated with crime rates is unsurprising.
+```{r}
+crime_df_2 = predict(predict_crime_bc, predict_crime) %>% 
+  cbind(response_crime = response_crime$Crime)
+
+crime_fit = lm(response_crime ~ . , data = crime_df_2)
+
+summary(crime_fit)
+```
+
+```{r}
+coef(crime_fit) %>%
+  as.data.frame()
+```
+
+```{r}
+s_1 = data.frame(
+M = 14.0,
+So = 0,
+Ed = 10.0,
+Po1 = 12.0,
+Po2 = 15.5,
+LF = 0.640,
+M.F = 94.0 ,
+Pop = 150,
+NW = 1.1,
+U1 = 0.120,
+U2 = 3.6 ,
+Wealth = 3200,
+Ineq = 20.1 ,
+Prob = 0.04 ,
+Time = 39.0
+)
+
+predict_crime_2 = predict(predict_crime_bc, s_1) %>%
+  dplyr::select(paste(names(predict_crime)))
+
+pred_ans = predict(crime_fit, predict_crime_2) %>%
+  as_tibble
+
+pred_ans
+```
